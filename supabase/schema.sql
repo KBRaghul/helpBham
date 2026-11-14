@@ -1,6 +1,9 @@
 -- helpBham demo schema
 -- Paste this whole file into Supabase Dashboard -> SQL Editor -> Run.
--- Safe to re-run: it drops and recreates the demo tables and reseeds them.
+-- Safe to re-run. It drops and recreates ONLY helpBham's own tables
+-- (reports, report_events, settings). The existing `shelters` table (shared
+-- with the team's `users` table via users_shelter_fk) is extended in place,
+-- never dropped. `users` and `cases` are left untouched.
 --
 -- DEMO ONLY: policies below let the public (anon) key read and write
 -- everything, because the app uses hard-coded demo logins rather than
@@ -10,22 +13,25 @@ create extension if not exists pgcrypto;
 
 drop table if exists public.report_events cascade;
 drop table if exists public.reports cascade;
-drop table if exists public.shelters cascade;
 drop table if exists public.settings cascade;
 
--- Shelters, managed by missionaries ------------------------------------
-create table public.shelters (
-  id              uuid primary key default gen_random_uuid(),
-  name            text not null,
-  address         text,
-  lat             double precision not null,
-  lng             double precision not null,
-  beds_total      integer not null default 0 check (beds_total >= 0),
-  beds_available  integer not null default 0 check (beds_available >= 0),
-  open_tonight    boolean not null default true,
-  owner           text,              -- demo username of the missionary
-  updated_at      timestamptz not null default now()
+-- Shelters, managed by missionaries (extend existing table) -------------
+create table if not exists public.shelters (
+  id          uuid primary key default gen_random_uuid(),
+  name        text not null,
+  address     text,
+  lat         double precision,
+  lng         double precision,
+  phone       text,
+  total_beds  integer,
+  notes       text,
+  created_at  timestamptz not null default now()
 );
+alter table public.shelters add column if not exists total_beds     integer;
+alter table public.shelters add column if not exists beds_available integer not null default 0;
+alter table public.shelters add column if not exists open_tonight   boolean not null default true;
+alter table public.shelters add column if not exists owner          text;   -- demo username of the missionary
+alter table public.shelters add column if not exists updated_at     timestamptz not null default now();
 
 -- Reports of people in need ---------------------------------------------
 create table public.reports (
@@ -83,6 +89,7 @@ end $$;
 
 create trigger reports_touch  before update on public.reports
   for each row execute function public.touch_updated_at();
+drop trigger if exists shelters_touch on public.shelters;
 create trigger shelters_touch before update on public.shelters
   for each row execute function public.touch_updated_at();
 create trigger settings_touch before update on public.settings
@@ -94,13 +101,15 @@ alter table public.reports       enable row level security;
 alter table public.report_events enable row level security;
 alter table public.settings      enable row level security;
 
+drop policy if exists "demo open" on public.shelters;
 create policy "demo open" on public.shelters      for all to anon, authenticated using (true) with check (true);
 create policy "demo open" on public.reports       for all to anon, authenticated using (true) with check (true);
 create policy "demo open" on public.report_events for all to anon, authenticated using (true) with check (true);
 create policy "demo open" on public.settings      for all to anon, authenticated using (true) with check (true);
 
 grant usage on schema public to anon, authenticated;
-grant all on all tables in schema public to anon, authenticated;
+grant all on public.shelters, public.reports, public.report_events, public.settings
+  to anon, authenticated;
 grant all on all sequences in schema public to anon, authenticated;
 
 -- Realtime -----------------------------------------------------------------
@@ -121,11 +130,21 @@ begin
 end $$;
 
 -- Seed data (demo) ---------------------------------------------------------
-insert into public.shelters (name, address, lat, lng, beds_total, beds_available, open_tonight, owner) values
-  ('Firehouse Shelter',        '626 2nd Ave N',       33.5179, -86.8120, 40, 6, true,  'missionary'),
-  ('Jimmie Hale Mission',      '3420 2nd Ave N',      33.5268, -86.7889, 60, 3, true,  'missionary2'),
-  ('Salvation Army Center',    '2015 26th Ave N',     33.5420, -86.8120, 50, 0, true,  null),
-  ('Grace House Warming Site', '1st Ave S & 20th St', 33.5108, -86.8040, 25, 12, true, null);
+-- Only seeds shelters if the table is empty; otherwise just gives the
+-- existing ones some free beds so the demo has somewhere to place people.
+insert into public.shelters (name, address, lat, lng, total_beds, beds_available, open_tonight, owner)
+select * from (values
+  ('Firehouse Shelter',        '626 2nd Ave N',       33.5179, -86.8120, 40, 6,  true, 'missionary'),
+  ('Jimmie Hale Mission',      '3420 2nd Ave N',      33.5268, -86.7889, 60, 3,  true, 'missionary2'),
+  ('Salvation Army Center',    '2015 26th Ave N',     33.5420, -86.8120, 50, 0,  true, null),
+  ('Grace House Warming Site', '1st Ave S & 20th St', 33.5108, -86.8040, 25, 12, true, null)
+) as v(name, address, lat, lng, total_beds, beds_available, open_tonight, owner)
+where not exists (select 1 from public.shelters);
+
+update public.shelters
+   set total_beds = coalesce(total_beds, 20),
+       beds_available = case when beds_available = 0 then least(5, coalesce(total_beds, 20)) else beds_available end
+ where lat is not null;
 
 with r as (
   insert into public.reports (lat, lng, people_count, needs, note, status, reporter, helper, claimed_at)

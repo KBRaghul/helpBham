@@ -81,7 +81,7 @@ export default function Map({
       />
       {onPick && <ClickToDrop onPick={onPick} />}
 
-      {shelters.map((s) => {
+      {shelters.filter((s) => s.lat != null && s.lng != null).map((s) => {
         const color = !s.open_tonight
           ? "#6b7280"
           : s.beds_available > 0

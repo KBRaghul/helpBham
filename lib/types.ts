@@ -33,7 +33,7 @@ export type Shelter = {
   address: string | null;
   lat: number;
   lng: number;
-  beds_total: number;
+  total_beds: number;
   beds_available: number;
   open_tonight: boolean;
   owner: string | null;

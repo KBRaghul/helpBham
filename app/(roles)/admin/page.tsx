@@ -256,7 +256,7 @@ export default function AdminPage() {
                     {s.name} <span className="text-slate-400">({s.owner ?? "no manager"})</span>
                   </span>
                   <span className={s.open_tonight ? "" : "text-slate-400"}>
-                    {s.open_tonight ? `${s.beds_available}/${s.beds_total} free` : "closed"}
+                    {s.open_tonight ? `${s.beds_available}/${s.total_beds} free` : "closed"}
                   </span>
                 </li>
               ))}

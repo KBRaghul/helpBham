@@ -90,7 +90,7 @@ export default function MissionaryPage() {
       name: newName.trim(),
       lat: newLoc.lat,
       lng: newLoc.lng,
-      beds_total: newBeds,
+      total_beds: newBeds,
       beds_available: newBeds,
       owner: me,
     });
@@ -198,14 +198,14 @@ export default function MissionaryPage() {
                 <button
                   onClick={() =>
                     saveShelter({
-                      beds_available: Math.min(shelter.beds_total, shelter.beds_available + 1),
+                      beds_available: Math.min(shelter.total_beds, shelter.beds_available + 1),
                     })
                   }
                   className="w-8 h-8 rounded-lg border border-slate-300"
                 >
                   +
                 </button>
-                <span className="text-xs text-slate-500">/ {shelter.beds_total}</span>
+                <span className="text-xs text-slate-500">/ {shelter.total_beds}</span>
               </div>
             </div>
             <label className="flex items-center justify-between text-sm">
