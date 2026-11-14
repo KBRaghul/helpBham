@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { logout } from "@/lib/auth";
+import { usePathname } from "next/navigation";
+import { signOutAndReload } from "@/lib/auth";
 import type { Role, Session } from "@/lib/types";
 import Logo from "./Logo";
 import WeatherBadge from "./WeatherBadge";
@@ -17,7 +17,6 @@ const ROLES: { role: Role; label: string }[] = [
 
 export default function RoleNav({ session }: { session: Session }) {
   const pathname = usePathname();
-  const router = useRouter();
   // Admin can view every role's screen; everyone else sees only their own.
   const tabs = session.role === "admin" ? ROLES : ROLES.filter((r) => r.role === session.role);
 
@@ -54,10 +53,7 @@ export default function RoleNav({ session }: { session: Session }) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => {
-              logout();
-              router.replace("/");
-            }}
+            onClick={signOutAndReload}
           >
             Sign Out
           </Button>

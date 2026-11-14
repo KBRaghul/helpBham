@@ -44,6 +44,16 @@ export function logout() {
   window.dispatchEvent(new Event(EVENT));
 }
 
+/**
+ * Sign out and hard-load the login page. A full load (not router navigation)
+ * drops pages Next.js keeps alive in the background, so the next user never
+ * sees the previous user's screens or data.
+ */
+export function signOutAndReload() {
+  logout();
+  window.location.replace("/");
+}
+
 function subscribe(cb: () => void) {
   window.addEventListener(EVENT, cb);
   window.addEventListener("storage", cb);

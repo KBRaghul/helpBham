@@ -8,6 +8,7 @@ import {
   Tooltip,
   useMapEvents,
 } from "react-leaflet";
+import { useLayoutEffect, useState } from "react";
 import type { LatLngBoundsExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { STATUS_COLORS, type ReportStatus } from "@/lib/types";
@@ -51,7 +52,7 @@ function ClickToDrop({
   return null;
 }
 
-export default function Map({
+function LeafletMap({
   pins = [],
   shelters = [],
   onPick,
@@ -148,4 +149,19 @@ export default function Map({
       )}
     </MapContainer>
   );
+}
+
+type MapProps = Parameters<typeof LeafletMap>[0];
+
+/**
+ * Next.js (cacheComponents) keeps visited pages alive in a hidden React
+ * <Activity>. When hidden, react-leaflet destroys its map but keeps the stale
+ * instance, so showing the page again crashes ("Map container is being
+ * reused"). Bumping the key on hide makes the page remount a fresh map when it
+ * becomes visible again.
+ */
+export default function Map(props: MapProps) {
+  const [generation, setGeneration] = useState(0);
+  useLayoutEffect(() => () => setGeneration((g) => g + 1), []);
+  return <LeafletMap key={generation} {...props} />;
 }
