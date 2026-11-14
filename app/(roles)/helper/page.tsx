@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import MapView from "@/components/MapView";
 import Legend from "@/components/Legend";
+import DirectionsLink from "@/components/DirectionsLink";
 import ReportCard from "@/components/ReportCard";
 import StatusBadge from "@/components/StatusBadge";
 import Timeline from "@/components/Timeline";
@@ -177,14 +178,11 @@ export default function HelperPage() {
                     <KeyValue label="Reporter">{selected.contact}</KeyValue>
                   )}
                   <KeyValue label="Location">
-                    <a
+                    <DirectionsLink
+                      lat={selected.lat}
+                      lng={selected.lng}
                       className="font-medium text-zinc-900 underline underline-offset-2"
-                      target="_blank"
-                      rel="noreferrer"
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`}
-                    >
-                      Get Directions
-                    </a>
+                    />
                   </KeyValue>
                 </dl>
 
