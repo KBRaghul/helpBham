@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/data";
 import type { ReportEvent } from "@/lib/types";
+import { SectionLabel } from "./ui";
 
 /** Audit trail for one report. `version` (e.g. updated_at) triggers a refetch. */
 export default function Timeline({ reportId, version }: { reportId: string; version?: string }) {
@@ -26,16 +27,20 @@ export default function Timeline({ reportId, version }: { reportId: string; vers
 
   if (events.length === 0) return null;
   return (
-    <ol className="border-l-2 border-slate-200 pl-3 space-y-1">
-      {events.map((e) => (
-        <li key={e.id} className="text-xs text-slate-600">
-          <span className="font-medium text-slate-800">{e.action}</span>
-          {e.detail ? `: ${e.detail}` : ""}{" "}
-          <span className="text-slate-400">
-            by {e.actor ?? "?"}, {timeAgo(e.at)}
-          </span>
-        </li>
-      ))}
-    </ol>
+    <div>
+      <SectionLabel>Activity</SectionLabel>
+      <ol className="mt-3 space-y-3 border-l border-zinc-200 pl-4">
+        {events.map((e) => (
+          <li key={e.id} className="relative text-sm">
+            <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full border-2 border-white bg-zinc-400" />
+            <span className="font-medium capitalize text-zinc-900">{e.action}</span>
+            {e.detail && <span className="text-zinc-600"> · {e.detail}</span>}
+            <div className="text-xs text-zinc-500">
+              {e.actor ?? "Unknown"} · {timeAgo(e.at)}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

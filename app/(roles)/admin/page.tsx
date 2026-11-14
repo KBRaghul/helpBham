@@ -6,27 +6,25 @@ import Legend from "@/components/Legend";
 import StatusBadge from "@/components/StatusBadge";
 import Timeline from "@/components/Timeline";
 import { useIsColdNight } from "@/components/ColdBanner";
+import {
+  Button,
+  Card,
+  Chip,
+  KeyValue,
+  MapFrame,
+  Notice,
+  PageHeader,
+  Select,
+  Stat,
+  Tabs,
+} from "@/components/ui";
 import { useSession } from "@/lib/auth";
 import { logEvent, setColdMode, timeAgo, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
-import {
-  STATUS_LABELS,
-  type ColdMode,
-  type Report,
-  type ReportStatus,
-} from "@/lib/types";
+import { STATUS_LABELS, type ColdMode, type Report, type ReportStatus } from "@/lib/types";
 
 const STATUSES = Object.keys(STATUS_LABELS) as ReportStatus[];
-
-function Stat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="text-2xl font-bold">{value}</div>
-      {hint && <div className="text-xs text-slate-400">{hint}</div>}
-    </div>
-  );
-}
+const COLD_LABEL: Record<ColdMode, string> = { auto: "Auto", on: "On", off: "Off" };
 
 function avgPlacementMinutes(reports: Report[]) {
   const placed = reports.filter((r) => r.status === "placed");
@@ -49,9 +47,7 @@ export default function AdminPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const count = (s: ReportStatus) => reports.filter((r) => r.status === s).length;
-  const freeBeds = shelters
-    .filter((s) => s.open_tonight)
-    .reduce((n, s) => n + s.beds_available, 0);
+  const freeBeds = shelters.filter((s) => s.open_tonight).reduce((n, s) => n + s.beds_available, 0);
   const avg = avgPlacementMinutes(reports);
   const shown = filter === "all" ? reports : reports.filter((r) => r.status === filter);
   const selected = reports.find((r) => r.id === selectedId) ?? null;
@@ -65,7 +61,7 @@ export default function AdminPage() {
     }
     const { error } = await supabase.from("reports").update(patch).eq("id", r.id);
     if (error) setMsg(error.message);
-    else await logEvent(r.id, session ?? null, `admin set ${status}`);
+    else await logEvent(r.id, session ?? null, `admin set ${STATUS_LABELS[status]}`);
     reload();
   }
 
@@ -83,57 +79,47 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-bold">Admin dashboard</h1>
-        <div className="flex items-center gap-2 text-sm">
-          <span>
-            Cold-night mode:{" "}
-            <strong className={cold ? "text-sky-700" : "text-slate-500"}>
-              {cold ? "ACTIVE" : "off"}
-            </strong>
-            {weather && (
-              <span className="text-slate-500">
-                {" "}
-                ({weather.tempF}°F{weather.source === "fallback" ? ", demo" : ""})
+    <>
+      <PageHeader
+        title="Admin"
+        description="Monitor every report and shelter across Birmingham."
+        actions={
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-zinc-500">
+              Cold-Night Mode{" "}
+              <span className={cold ? "font-medium text-sky-700" : "text-zinc-500"}>
+                {cold ? "Active" : "Inactive"}
               </span>
-            )}
-          </span>
-          {(["auto", "on", "off"] as ColdMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => changeColdMode(m)}
-              className={`px-3 py-1 rounded-lg border ${
-                mode === m ? "bg-slate-900 text-white border-slate-900" : "border-slate-300 bg-white"
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+              {weather && <span className="tabular-nums"> · {weather.tempF}°F</span>}
+            </span>
+            <Tabs
+              value={mode}
+              onChange={changeColdMode}
+              items={(["auto", "on", "off"] as ColdMode[]).map((m) => ({
+                value: m,
+                label: COLD_LABEL[m],
+              }))}
+            />
+          </div>
+        }
+      />
+
+      {loadError && <Notice tone="danger">{loadError}</Notice>}
+      {msg && <Notice tone="danger">{msg}</Notice>}
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="Reports" value={reports.length} />
+        <Stat label="Unclaimed" value={count("reported")} />
+        <Stat label="En Route" value={count("claimed")} />
+        <Stat label="Need a Bed" value={count("needs_bed")} />
+        <Stat label="Free Beds" value={freeBeds} hint={`Across ${shelters.length} shelters`} />
+        <Stat label="Avg. Time to Bed" value={avg === null ? "–" : `${avg} min`} hint="Report to placed" />
       </div>
 
-      {loadError && <p className="text-sm text-red-600">{loadError}</p>}
-      {msg && <p className="text-sm text-red-600">{msg}</p>}
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Stat label="Total reports" value={reports.length} />
-        <Stat label="Waiting for helper" value={count("reported")} />
-        <Stat label="Helper on the way" value={count("claimed")} />
-        <Stat label="Needs a bed" value={count("needs_bed")} />
-        <Stat label="Placed" value={count("placed")} />
-        <Stat label="Free beds tonight" value={freeBeds} hint={`${shelters.length} shelters`} />
-        <Stat
-          label="Avg. time to bed"
-          value={avg === null ? "–" : `${avg}m`}
-          hint="report → placed"
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <section className="space-y-2">
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="space-y-3">
           <Legend />
-          <div className="h-[55vh] rounded-xl overflow-hidden border border-slate-200">
+          <MapFrame>
             <MapView
               pins={shown.map((r) => ({
                 id: r.id,
@@ -146,74 +132,72 @@ export default function AdminPage() {
               onSelect={setSelectedId}
               selectedId={selectedId}
             />
-          </div>
-        </section>
+          </MapFrame>
+        </div>
 
-        <section className="space-y-2">
-          <div className="flex flex-wrap gap-1">
+        <div className="space-y-6">
+          <div className="flex flex-wrap gap-2">
             {(["all", ...STATUSES] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setFilter(s)}
-                className={`px-2 py-1 rounded-lg text-xs border ${
-                  filter === s ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200"
-                }`}
-              >
+              <Chip key={s} active={filter === s} onClick={() => setFilter(s)}>
                 {s === "all" ? "All" : STATUS_LABELS[s]}
-              </button>
+              </Chip>
             ))}
           </div>
 
           {selected && (
-            <div className="bg-white rounded-xl border border-slate-900 p-3 space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="font-mono">#{selected.code}</span>
-                <StatusBadge status={selected.status} />
-              </div>
-              <p>
-                {selected.people_count}p · needs {selected.needs.join(", ") || "–"} · reporter{" "}
-                {selected.reporter ?? "anon"} · helper {selected.helper ?? "–"}
-                {selected.shelter_id &&
-                  ` · shelter ${shelters.find((s) => s.id === selected.shelter_id)?.name ?? "?"}`}
-              </p>
-              {selected.note && <p className="text-slate-600">{selected.note}</p>}
-              {selected.outcome && <p className="text-slate-600">Outcome: {selected.outcome}</p>}
-              {selected.contact && <p className="text-slate-600">Contact: {selected.contact}</p>}
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex items-center gap-1">
-                  Set status
-                  <select
+            <Card
+              title={`Report #${selected.code}`}
+              action={<StatusBadge status={selected.status} />}
+            >
+              <div className="space-y-5">
+                <dl className="divide-y divide-zinc-100">
+                  <KeyValue label="People">{selected.people_count}</KeyValue>
+                  <KeyValue label="Needs">
+                    <span className="capitalize">{selected.needs.join(", ") || "–"}</span>
+                  </KeyValue>
+                  <KeyValue label="Reporter">{selected.reporter ?? "Anonymous"}</KeyValue>
+                  <KeyValue label="Helper">{selected.helper ?? "–"}</KeyValue>
+                  {selected.shelter_id && (
+                    <KeyValue label="Shelter">
+                      {shelters.find((s) => s.id === selected.shelter_id)?.name ?? "–"}
+                    </KeyValue>
+                  )}
+                  {selected.note && <KeyValue label="Notes">{selected.note}</KeyValue>}
+                  {selected.outcome && <KeyValue label="Outcome">{selected.outcome}</KeyValue>}
+                  {selected.contact && <KeyValue label="Contact">{selected.contact}</KeyValue>}
+                </dl>
+                <div className="flex items-center gap-2">
+                  <Select
+                    aria-label="Change status"
                     value={selected.status}
                     onChange={(e) => setStatus(selected, e.target.value as ReportStatus)}
-                    className="rounded border border-slate-300 px-1 py-0.5"
+                    className="flex-1"
                   >
                     {STATUSES.map((s) => (
                       <option key={s} value={s}>
                         {STATUS_LABELS[s]}
                       </option>
                     ))}
-                  </select>
-                </label>
-                <button
-                  onClick={() => remove(selected)}
-                  className="ml-auto rounded-lg border border-red-300 text-red-700 px-2 py-1 hover:bg-red-50"
-                >
-                  Delete (spam)
-                </button>
+                  </Select>
+                  <Button variant="danger" onClick={() => remove(selected)}>
+                    Delete
+                  </Button>
+                </div>
+                <Timeline reportId={selected.id} version={selected.updated_at} />
               </div>
-              <Timeline reportId={selected.id} version={selected.updated_at} />
-            </div>
+            </Card>
           )}
 
-          <div className="bg-white rounded-xl border border-slate-200 overflow-auto max-h-[45vh]">
+          <div className="max-h-[50vh] overflow-auto rounded-xl border border-zinc-200 bg-white">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs text-slate-500 sticky top-0">
-                <tr>
-                  <th className="p-2">Code</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">People</th>
-                  <th className="p-2">Helper</th>
-                  <th className="p-2">Age</th>
+              <caption className="sr-only">All reports</caption>
+              <thead className="sticky top-0 bg-white text-left">
+                <tr className="border-b border-zinc-200 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  <th scope="col" className="px-4 py-3 font-medium">Code</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Status</th>
+                  <th scope="col" className="px-4 py-3 font-medium">People</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Helper</th>
+                  <th scope="col" className="px-4 py-3 font-medium">Age</th>
                 </tr>
               </thead>
               <tbody>
@@ -221,24 +205,29 @@ export default function AdminPage() {
                   <tr
                     key={r.id}
                     onClick={() => setSelectedId(r.id)}
-                    className={`border-t border-slate-100 cursor-pointer ${
-                      r.id === selectedId ? "bg-slate-100" : "hover:bg-slate-50"
+                    className={`cursor-pointer border-b border-zinc-100 last:border-0 ${
+                      r.id === selectedId ? "bg-zinc-50" : "hover:bg-zinc-50"
                     }`}
                   >
-                    <td className="p-2 font-mono text-xs">
-                      {r.urgent && <span className="text-red-600">● </span>}#{r.code}
+                    <td className="px-4 py-3 font-mono text-xs text-zinc-700">
+                      #{r.code}
+                      {r.urgent && (
+                        <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 font-sans text-xs font-medium text-red-700">
+                          Urgent
+                        </span>
+                      )}
                     </td>
-                    <td className="p-2">
+                    <td className="px-4 py-3">
                       <StatusBadge status={r.status} />
                     </td>
-                    <td className="p-2">{r.people_count}</td>
-                    <td className="p-2">{r.helper ?? "–"}</td>
-                    <td className="p-2 text-slate-500">{timeAgo(r.created_at)}</td>
+                    <td className="px-4 py-3 tabular-nums">{r.people_count}</td>
+                    <td className="px-4 py-3 text-zinc-600">{r.helper ?? "–"}</td>
+                    <td className="px-4 py-3 text-zinc-500">{timeAgo(r.created_at)}</td>
                   </tr>
                 ))}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-3 text-slate-500">
+                    <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
                       No reports.
                     </td>
                   </tr>
@@ -247,23 +236,23 @@ export default function AdminPage() {
             </table>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 p-3">
-            <h2 className="font-semibold text-sm mb-1">Shelters</h2>
-            <ul className="text-sm space-y-0.5">
+          <Card title="Shelters">
+            <ul className="divide-y divide-zinc-100 text-sm">
               {shelters.map((s) => (
-                <li key={s.id} className="flex justify-between">
-                  <span>
-                    {s.name} <span className="text-slate-400">({s.owner ?? "no manager"})</span>
-                  </span>
-                  <span className={s.open_tonight ? "" : "text-slate-400"}>
-                    {s.open_tonight ? `${s.beds_available}/${s.total_beds} free` : "closed"}
+                <li key={s.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <div className="text-zinc-900">{s.name}</div>
+                    <div className="text-xs text-zinc-500">{s.owner ?? "No manager"}</div>
+                  </div>
+                  <span className={`tabular-nums ${s.open_tonight ? "text-zinc-900" : "text-zinc-500"}`}>
+                    {s.open_tonight ? `${s.beds_available} / ${s.total_beds} Free` : "Closed"}
                   </span>
                 </li>
               ))}
             </ul>
-          </div>
-        </section>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

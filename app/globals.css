@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fafafa;
+  --foreground: #18181b;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,15 +13,42 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Leaflet: match the app's type and soften chrome */
+.leaflet-container {
+  font-family: inherit;
+  font-size: 12px;
+  background: #f4f4f5;
+}
+.leaflet-tooltip {
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  color: #18181b;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.leaflet-control-zoom a {
+  color: #18181b !important;
+}
+.leaflet-bar {
+  border: 1px solid #e4e4e7 !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+/* Muted, greyscale basemap so status pins stand out */
+.leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.85) brightness(1.08);
 }

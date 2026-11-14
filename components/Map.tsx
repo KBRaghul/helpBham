@@ -77,7 +77,8 @@ export default function Map({
     >
       <TileLayer
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="&copy; OpenStreetMap contributors"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+
       />
       {onPick && <ClickToDrop onPick={onPick} />}
 
@@ -95,8 +96,9 @@ export default function Map({
             pathOptions={{ color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 }}
           >
             <Tooltip>
-              🏠 {s.name}:{" "}
-              {s.open_tonight ? `${s.beds_available} beds free` : "closed tonight"}
+              <strong>{s.name}</strong>
+              <br />
+              {s.open_tonight ? `${s.beds_available} Beds Free` : "Closed Tonight"}
             </Tooltip>
           </CircleMarker>
         );

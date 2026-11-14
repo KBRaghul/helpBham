@@ -19,9 +19,12 @@ export default function ColdBanner() {
   const { active, weather } = useIsColdNight();
   if (!active) return null;
   return (
-    <div className="bg-sky-700 text-white text-sm px-4 py-2 text-center">
-      ❄️ Cold-night alert{weather ? `: ${weather.tempF}°F in Birmingham` : ""}. Reports
-      are prioritised. If someone is unresponsive or in danger, call 911.
+    <div role="status" className="border-b border-sky-100 bg-sky-50">
+      <p className="mx-auto max-w-7xl px-4 py-2 text-sm text-sky-900 sm:px-6">
+        <span className="font-medium">Cold-Night Alert</span>
+        {weather ? ` · ${weather.tempF}°F in Birmingham` : ""}. Reports are prioritized. If
+        someone is unresponsive, call 911.
+      </p>
     </div>
   );
 }

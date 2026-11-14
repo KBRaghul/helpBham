@@ -2,19 +2,19 @@ import { STATUS_COLORS, STATUS_LABELS, type ReportStatus } from "@/lib/types";
 
 export default function Legend({ showShelters = true }: { showShelters?: boolean }) {
   return (
-    <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500" aria-label="Map legend">
       {(Object.keys(STATUS_COLORS) as ReportStatus[]).map((s) => (
-        <span key={s} className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full" style={{ background: STATUS_COLORS[s] }} />
+        <li key={s} className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLORS[s] }} />
           {STATUS_LABELS[s]}
-        </span>
+        </li>
       ))}
       {showShelters && (
-        <span className="inline-flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full border-2 border-white ring-1 ring-blue-600 bg-blue-600" />
+        <li className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-blue-600 ring-2 ring-blue-100" />
           Shelter
-        </span>
+        </li>
       )}
-    </div>
+    </ul>
   );
 }

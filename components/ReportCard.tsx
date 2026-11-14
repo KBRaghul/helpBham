@@ -11,31 +11,38 @@ export default function ReportCard({
   report: Report;
   selected?: boolean;
   onClick?: () => void;
-  extra?: React.ReactNode;
+  extra?: string;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left rounded-lg border p-3 text-sm transition ${
-        selected ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:bg-slate-50"
+    <Tag
+      {...(onClick ? { type: "button" as const, onClick } : {})}
+      aria-pressed={onClick ? selected : undefined}
+      className={`block w-full rounded-lg border p-4 text-left transition-colors ${
+        selected ? "border-zinc-900 bg-white ring-1 ring-zinc-900" : "border-zinc-200 bg-white hover:border-zinc-300"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-xs text-slate-500">#{r.code}</span>
+        <span className="font-mono text-xs text-zinc-500">#{r.code}</span>
         <StatusBadge status={r.status} />
       </div>
-      <div className="mt-1">
-        {r.urgent && <span className="mr-1 text-red-600 font-semibold">URGENT</span>}
-        {r.people_count} {r.people_count === 1 ? "person" : "people"}
-        {r.needs.length > 0 && <span className="text-slate-500"> · needs {r.needs.join(", ")}</span>}
-      </div>
-      {r.note && <div className="text-slate-600 truncate">{r.note}</div>}
-      <div className="text-xs text-slate-500 mt-1">
+      <p className="mt-2 text-sm font-medium text-zinc-900">
+        {r.people_count} {r.people_count === 1 ? "Person" : "People"}
+        {r.urgent && (
+          <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-700">
+            Urgent
+          </span>
+        )}
+      </p>
+      {r.needs.length > 0 && (
+        <p className="mt-0.5 text-sm capitalize text-zinc-600">{r.needs.join(", ")}</p>
+      )}
+      {r.note && <p className="mt-0.5 truncate text-sm text-zinc-500">{r.note}</p>}
+      <p className="mt-2 text-xs text-zinc-500">
         {timeAgo(r.created_at)}
-        {r.helper ? ` · helper: ${r.helper}` : ""}
-        {extra}
-      </div>
-    </button>
+        {r.helper ? ` · ${r.helper}` : ""}
+        {extra ? ` · ${extra}` : ""}
+      </p>
+    </Tag>
   );
 }

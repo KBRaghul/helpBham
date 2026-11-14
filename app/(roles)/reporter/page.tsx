@@ -2,11 +2,23 @@
 
 import { useState } from "react";
 import MapView from "@/components/MapView";
-import StatusBadge from "@/components/StatusBadge";
+import ReportCard from "@/components/ReportCard";
+import {
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  Field,
+  Input,
+  MapFrame,
+  Notice,
+  PageHeader,
+  Textarea,
+} from "@/components/ui";
 import { useSession } from "@/lib/auth";
-import { logEvent, timeAgo, useReports, useShelters } from "@/lib/data";
+import { logEvent, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
-import { NEEDS, type Report } from "@/lib/types";
+import { NEEDS } from "@/lib/types";
 
 const IN_BHAM = (lat: number, lng: number) =>
   lat >= 33.38 && lat <= 33.65 && lng >= -87.0 && lng <= -86.6;
@@ -74,7 +86,7 @@ export default function ReporterPage() {
       return;
     }
     await logEvent(data.id, session ?? null, "reported", urgent ? "marked urgent" : undefined);
-    setMsg({ ok: true, text: `Thank you. Report sent. Your reference code is ${data.code}.` });
+    setMsg({ ok: true, text: `Report sent. Your reference code is ${data.code}.` });
     setPicked(null);
     setPeople(1);
     setNeeds([]);
@@ -84,22 +96,19 @@ export default function ReporterPage() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Report someone who needs help</h1>
-          <button
-            type="button"
-            onClick={useMyLocation}
-            className="text-sm rounded-lg border border-slate-300 px-3 py-1.5 hover:bg-white"
-          >
-            📍 Use my location
-          </button>
-        </div>
-        <p className="text-sm text-slate-600">
-          Tap the map where you saw them. The location is rounded to about 100m.
-        </p>
-        <div className="h-[60vh] rounded-xl overflow-hidden border border-slate-200">
+    <>
+      <PageHeader
+        title="Reporter"
+        description="Tap the map where you saw someone who needs help. Locations are rounded to about 100 m."
+        actions={
+          <Button variant="secondary" onClick={useMyLocation}>
+            Use My Location
+          </Button>
+        }
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <MapFrame>
           <MapView
             onPick={(lat, lng) => setPicked({ lat, lng })}
             picked={picked}
@@ -108,124 +117,114 @@ export default function ReporterPage() {
               lat: r.lat,
               lng: r.lng,
               status: r.status,
-              label: `#${r.code}: ${r.status}`,
+              label: `#${r.code}`,
             }))}
             shelters={shelters}
           />
-        </div>
-      </section>
+        </MapFrame>
 
-      <aside className="space-y-4">
-        <form onSubmit={submit} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-          <div className="text-sm">
-            Location:{" "}
-            {picked ? (
-              <span className="font-mono">
-                {picked.lat}, {picked.lng}
-              </span>
-            ) : (
-              <span className="text-slate-500">not set, tap the map</span>
-            )}
-          </div>
+        <div className="space-y-6">
+          <Card title="New Report">
+            <form onSubmit={submit} className="space-y-5">
+              <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-sm">
+                <span className="text-zinc-500">Location</span>
+                {picked ? (
+                  <span className="font-mono text-zinc-900">
+                    {picked.lat}, {picked.lng}
+                  </span>
+                ) : (
+                  <span className="text-zinc-500">Tap the map</span>
+                )}
+              </div>
 
-          <label className="block text-sm">
-            <span className="font-medium">How many people?</span>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={people}
-              onChange={(e) => setPeople(Math.max(1, Number(e.target.value) || 1))}
-              className="mt-1 w-24 rounded-lg border border-slate-300 px-2 py-1"
-            />
-          </label>
+              <Field label="Number of People">
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={people}
+                  onChange={(e) => setPeople(Math.max(1, Number(e.target.value) || 1))}
+                  className="w-24"
+                />
+              </Field>
 
-          <fieldset className="text-sm">
-            <legend className="font-medium mb-1">What do they seem to need?</legend>
-            <div className="flex flex-wrap gap-2">
-              {NEEDS.map((n) => {
-                const on = needs.includes(n);
-                return (
-                  <button
-                    type="button"
-                    key={n}
-                    onClick={() => setNeeds(on ? needs.filter((x) => x !== n) : [...needs, n])}
-                    className={`rounded-full px-3 py-1 border ${
-                      on ? "bg-slate-900 text-white border-slate-900" : "border-slate-300"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
-            <span className="font-medium">Seems unwell, injured or unresponsive</span>
-          </label>
-          {urgent && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">
-              <strong>If someone is in danger, call 911 now.</strong> helpBham is not an
-              emergency service.
-            </div>
-          )}
-
-          <label className="block text-sm">
-            <span className="font-medium">Notes</span>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="Landmarks, what they're wearing…"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1"
-            />
-          </label>
-
-          <label className="block text-sm">
-            <span className="font-medium">Your phone or email (optional)</span>
-            <input
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              placeholder="Only if you're happy to be contacted"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1"
-            />
-          </label>
-
-          {msg && (
-            <p className={`text-sm ${msg.ok ? "text-green-700" : "text-red-600"}`}>{msg.text}</p>
-          )}
-
-          <button
-            disabled={busy}
-            className="w-full rounded-lg bg-red-600 text-white py-2 font-medium hover:bg-red-700 disabled:opacity-50"
-          >
-            {busy ? "Sending…" : "Send report"}
-          </button>
-        </form>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <h2 className="font-semibold mb-2">My reports</h2>
-          {loadError && <p className="text-sm text-red-600">{loadError}</p>}
-          {mine.length === 0 && <p className="text-sm text-slate-500">None yet.</p>}
-          <ul className="space-y-2">
-            {mine.map((r: Report) => (
-              <li key={r.id} className="text-sm flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-mono text-xs text-slate-500">#{r.code}</div>
-                  <div>
-                    {r.people_count} {r.people_count === 1 ? "person" : "people"}
-                    {r.note ? `: ${r.note}` : ""}
-                  </div>
-                  <div className="text-xs text-slate-500">{timeAgo(r.created_at)}</div>
+              <fieldset>
+                <legend className="text-sm font-medium text-zinc-900">Needs</legend>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {NEEDS.map((n) => {
+                    const on = needs.includes(n);
+                    return (
+                      <Chip
+                        key={n}
+                        active={on}
+                        onClick={() => setNeeds(on ? needs.filter((x) => x !== n) : [...needs, n])}
+                        className="capitalize"
+                      >
+                        {n}
+                      </Chip>
+                    );
+                  })}
                 </div>
-                <StatusBadge status={r.status} />
-              </li>
-            ))}
-          </ul>
+              </fieldset>
+
+              <label className="flex items-start gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={urgent}
+                  onChange={(e) => setUrgent(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-zinc-900"
+                />
+                <span>
+                  <span className="font-medium text-zinc-900">Urgent</span>
+                  <span className="block text-zinc-500">Seems unwell, injured or unresponsive.</span>
+                </span>
+              </label>
+              {urgent && (
+                <Notice tone="danger">
+                  <strong>If someone is in danger, call 911 now.</strong> helpBham is not an
+                  emergency service.
+                </Notice>
+              )}
+
+              <Field label="Notes" hint="Optional">
+                <Textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  rows={3}
+                  placeholder="Landmarks, what they're wearing…"
+                />
+              </Field>
+
+              <Field label="Your Contact" hint="Optional">
+                <Input
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  placeholder="Phone or email"
+                />
+              </Field>
+
+              {msg && <Notice tone={msg.ok ? "success" : "danger"}>{msg.text}</Notice>}
+
+              <Button type="submit" block disabled={busy}>
+                {busy ? "Sending…" : "Send Report"}
+              </Button>
+            </form>
+          </Card>
+
+          <Card title="My Reports">
+            {loadError && <Notice tone="danger">{loadError}</Notice>}
+            {mine.length === 0 ? (
+              <EmptyState>You haven&apos;t sent any reports yet.</EmptyState>
+            ) : (
+              <div className="space-y-3">
+                {mine.map((r) => (
+                  <ReportCard key={r.id} report={r} />
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
-      </aside>
-    </div>
+      </div>
+    </>
   );
 }

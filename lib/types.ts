@@ -62,9 +62,9 @@ export const STATUS_COLORS: Record<ReportStatus, string> = {
 
 export const STATUS_LABELS: Record<ReportStatus, string> = {
   reported: "Reported",
-  claimed: "Helper on the way",
-  needs_bed: "Needs a bed",
-  placed: "Placed in shelter",
+  claimed: "Helper En Route",
+  needs_bed: "Needs a Bed",
+  placed: "Placed",
   closed: "Closed",
 };
 

@@ -6,6 +6,18 @@ import Legend from "@/components/Legend";
 import ReportCard from "@/components/ReportCard";
 import StatusBadge from "@/components/StatusBadge";
 import Timeline from "@/components/Timeline";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Input,
+  KeyValue,
+  MapFrame,
+  Notice,
+  PageHeader,
+  SectionLabel,
+  Tabs,
+} from "@/components/ui";
 import { useSession } from "@/lib/auth";
 import { logEvent, miles, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
@@ -115,176 +127,178 @@ export default function HelperPage() {
   const mineSelected = selected && selected.helper === me && !isStale(selected);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Helper</h1>
-          <Legend />
-        </div>
-        <div className="h-[65vh] rounded-xl overflow-hidden border border-slate-200">
+    <>
+      <PageHeader
+        title="Helper"
+        description="Claim an open report, check on the person and request a bed if they need one."
+        actions={<Legend />}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+        <MapFrame>
           <MapView
             pins={active.map((r) => ({
               id: r.id,
               lat: r.lat,
               lng: r.lng,
               status: r.status,
-              label: `#${r.code} · ${r.people_count}p${r.urgent ? " · URGENT" : ""}`,
+              label: `#${r.code} · ${r.people_count} ${r.people_count === 1 ? "Person" : "People"}`,
             }))}
             shelters={shelters}
             onSelect={setSelectedId}
             selectedId={selectedId}
           />
-        </div>
-      </section>
+        </MapFrame>
 
-      <aside className="space-y-3">
-        {selected && (
-          <div className="bg-white rounded-xl border border-slate-900 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-sm">#{selected.code}</span>
-              <StatusBadge status={selected.status} />
-            </div>
-            <div className="text-sm space-y-1">
-              {selected.urgent && (
-                <p className="text-red-700 font-semibold">
-                  Urgent: may be unwell. Call 911 if they are unresponsive.
-                </p>
-              )}
-              <p>
-                {selected.people_count} {selected.people_count === 1 ? "person" : "people"}
-                {selected.needs.length > 0 && ` · needs ${selected.needs.join(", ")}`}
-              </p>
-              {selected.note && <p className="text-slate-600">{selected.note}</p>}
-              {selected.contact && (
-                <p className="text-slate-600">Reporter contact: {selected.contact}</p>
-              )}
-              <a
-                className="text-blue-600 underline"
-                target="_blank"
-                rel="noreferrer"
-                href={`https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`}
-              >
-                Directions ↗
-              </a>
-            </div>
-
-            {(selected.status === "reported" || isStale(selected)) && (
-              <button
-                disabled={busy}
-                onClick={claim}
-                className="w-full rounded-lg bg-amber-500 text-white py-2 font-medium hover:bg-amber-600 disabled:opacity-50"
-              >
-                {isStale(selected) ? "Take over stale claim" : "I'm on my way (claim)"}
-              </button>
-            )}
-
-            {mineSelected && selected.status === "claimed" && (
-              <div className="space-y-2">
-                <input
-                  value={outcome}
-                  onChange={(e) => setOutcome(e.target.value)}
-                  placeholder="What happened? Supplies given?"
-                  className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      update(
-                        { status: "needs_bed", outcome: outcome || null },
-                        "needs a bed",
-                        outcome || undefined,
-                      )
-                    }
-                    className="rounded-lg bg-purple-600 text-white py-2 text-sm hover:bg-purple-700 disabled:opacity-50"
-                  >
-                    Needs a shelter bed
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      update(
-                        { status: "closed", outcome: outcome || "resolved on site" },
-                        "closed",
-                        outcome || "resolved on site",
-                      )
-                    }
-                    className="rounded-lg bg-slate-700 text-white py-2 text-sm hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    Resolved / not found
-                  </button>
-                </div>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    update(
-                      { status: "reported", helper: null, claimed_at: null },
-                      "released",
-                      outcome || undefined,
-                    )
-                  }
-                  className="w-full rounded-lg border border-slate-300 py-1.5 text-sm hover:bg-slate-50"
-                >
-                  I can&apos;t go (release)
-                </button>
-              </div>
-            )}
-
-            {mineSelected && selected.status === "needs_bed" && (
-              <p className="text-sm text-purple-700">
-                Waiting for a shelter to accept. Stay with them if you can.
-              </p>
-            )}
-
-            {nearestShelters.length > 0 && selected.status !== "placed" && (
-              <div className="text-sm">
-                <div className="font-medium">Nearest shelters with beds</div>
-                <ul className="text-slate-600">
-                  {nearestShelters.map(({ s, d }) => (
-                    <li key={s.id}>
-                      🏠 {s.name}: {s.beds_available} beds · {d.toFixed(1)} mi
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {msg && <p className="text-sm text-red-600">{msg}</p>}
-            <Timeline reportId={selected.id} version={selected.updated_at} />
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          {(["open", "mine"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 rounded-lg py-1.5 text-sm ${
-                tab === t ? "bg-slate-900 text-white" : "bg-white border border-slate-200"
-              }`}
+        <div className="space-y-6">
+          {selected && (
+            <Card
+              title={`Report #${selected.code}`}
+              action={<StatusBadge status={selected.status} />}
             >
-              {t === "open" ? `Open (${open.length})` : `My jobs (${mine.length})`}
-            </button>
-          ))}
-        </div>
-        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
-        <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-          {list.length === 0 && (
-            <p className="text-sm text-slate-500">
-              {tab === "open" ? "No open reports right now." : "You have no active jobs."}
-            </p>
+              <div className="space-y-5">
+                {selected.urgent && (
+                  <Notice tone="danger">
+                    Urgent: may be unwell. Call 911 if they are unresponsive.
+                  </Notice>
+                )}
+
+                <dl className="divide-y divide-zinc-100">
+                  <KeyValue label="People">{selected.people_count}</KeyValue>
+                  {selected.needs.length > 0 && (
+                    <KeyValue label="Needs">
+                      <span className="capitalize">{selected.needs.join(", ")}</span>
+                    </KeyValue>
+                  )}
+                  {selected.note && <KeyValue label="Notes">{selected.note}</KeyValue>}
+                  {selected.contact && <KeyValue label="Reporter">{selected.contact}</KeyValue>}
+                  <KeyValue label="Location">
+                    <a
+                      className="font-medium text-zinc-900 underline underline-offset-2"
+                      target="_blank"
+                      rel="noreferrer"
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`}
+                    >
+                      Get Directions
+                    </a>
+                  </KeyValue>
+                </dl>
+
+                {(selected.status === "reported" || isStale(selected)) && (
+                  <Button block disabled={busy} onClick={claim}>
+                    {isStale(selected) ? "Take Over Claim" : "Claim Report"}
+                  </Button>
+                )}
+
+                {mineSelected && selected.status === "claimed" && (
+                  <div className="space-y-3">
+                    <Input
+                      value={outcome}
+                      onChange={(e) => setOutcome(e.target.value)}
+                      placeholder="What happened? Supplies given?"
+                      aria-label="Outcome notes"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        disabled={busy}
+                        onClick={() =>
+                          update(
+                            { status: "needs_bed", outcome: outcome || null },
+                            "needs a bed",
+                            outcome || undefined,
+                          )
+                        }
+                      >
+                        Request Bed
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          update(
+                            { status: "closed", outcome: outcome || "resolved on site" },
+                            "closed",
+                            outcome || "resolved on site",
+                          )
+                        }
+                      >
+                        Mark Resolved
+                      </Button>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      block
+                      disabled={busy}
+                      onClick={() =>
+                        update(
+                          { status: "reported", helper: null, claimed_at: null },
+                          "released",
+                          outcome || undefined,
+                        )
+                      }
+                    >
+                      Release Claim
+                    </Button>
+                  </div>
+                )}
+
+                {mineSelected && selected.status === "needs_bed" && (
+                  <Notice>Waiting for a shelter to accept. Stay with them if you can.</Notice>
+                )}
+
+                {msg && <Notice tone="danger">{msg}</Notice>}
+
+                {nearestShelters.length > 0 && selected.status !== "placed" && (
+                  <div>
+                    <SectionLabel>Nearest Shelters</SectionLabel>
+                    <ul className="mt-2 divide-y divide-zinc-100 text-sm">
+                      {nearestShelters.map(({ s, d }) => (
+                        <li key={s.id} className="flex justify-between py-1.5">
+                          <span className="text-zinc-900">{s.name}</span>
+                          <span className="tabular-nums text-zinc-500">
+                            {s.beds_available} Beds · {d.toFixed(1)} mi
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <Timeline reportId={selected.id} version={selected.updated_at} />
+              </div>
+            </Card>
           )}
-          {list.map((r) => (
-            <ReportCard
-              key={r.id}
-              report={r}
-              selected={r.id === selectedId}
-              onClick={() => setSelectedId(r.id)}
-              extra={isStale(r) ? " · claim expired" : undefined}
+
+          <div className="space-y-4">
+            <Tabs
+              value={tab}
+              onChange={setTab}
+              items={[
+                { value: "open", label: `Open (${open.length})` },
+                { value: "mine", label: `My Jobs (${mine.length})` },
+              ]}
             />
-          ))}
+            {loadError && <Notice tone="danger">{loadError}</Notice>}
+            <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+              {list.length === 0 ? (
+                <EmptyState>
+                  {tab === "open" ? "No open reports right now." : "You have no active jobs."}
+                </EmptyState>
+              ) : (
+                list.map((r) => (
+                  <ReportCard
+                    key={r.id}
+                    report={r}
+                    selected={r.id === selectedId}
+                    onClick={() => setSelectedId(r.id)}
+                    extra={isStale(r) ? "Claim expired" : undefined}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         </div>
-      </aside>
-    </div>
+      </div>
+    </>
   );
 }

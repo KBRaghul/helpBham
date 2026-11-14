@@ -12,8 +12,7 @@ export default function RoleShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   const section = pathname.split("/")[1];
-  const allowed =
-    !!session && (session.role === "admin" || session.role === section);
+  const allowed = !!session && (session.role === "admin" || session.role === section);
 
   useEffect(() => {
     if (session === null) router.replace("/");
@@ -21,14 +20,18 @@ export default function RoleShell({ children }: { children: React.ReactNode }) {
   }, [session, allowed, router]);
 
   if (!session || !allowed) {
-    return <div className="p-6 text-slate-500">Loading…</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-zinc-500">
+        Loading…
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <div className="flex min-h-screen flex-col">
       <RoleNav session={session} />
       <ColdBanner />
-      <main className="flex-1 p-4">{children}</main>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }

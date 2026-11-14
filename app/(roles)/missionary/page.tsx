@@ -5,6 +5,17 @@ import MapView from "@/components/MapView";
 import Legend from "@/components/Legend";
 import ReportCard from "@/components/ReportCard";
 import Timeline from "@/components/Timeline";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  MapFrame,
+  Notice,
+  PageHeader,
+  Select,
+} from "@/components/ui";
 import { useSession } from "@/lib/auth";
 import { logEvent, miles, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
@@ -103,20 +114,22 @@ export default function MissionaryPage() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_420px]">
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Shelter / Missionary</h1>
-          <Legend />
-        </div>
-        <div className="h-[65vh] rounded-xl overflow-hidden border border-slate-200">
+    <>
+      <PageHeader
+        title="Missionary"
+        description="Keep your shelter's capacity up to date and accept people who need a bed tonight."
+        actions={<Legend />}
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+        <MapFrame>
           <MapView
             pins={waiting.map(({ r }) => ({
               id: r.id,
               lat: r.lat,
               lng: r.lng,
               status: r.status,
-              label: `#${r.code} · ${r.people_count}p needs a bed`,
+              label: `#${r.code} · Needs a Bed`,
             }))}
             shelters={shelters}
             onSelect={setSelectedId}
@@ -124,144 +137,149 @@ export default function MissionaryPage() {
             onPick={!shelter ? (lat, lng) => setNewLoc({ lat, lng }) : undefined}
             picked={!shelter ? newLoc : null}
           />
-        </div>
-      </section>
+        </MapFrame>
 
-      <aside className="space-y-3">
-        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
-        {msg && <p className="text-sm text-red-600">{msg}</p>}
+        <div className="space-y-6">
+          {loadError && <Notice tone="danger">{loadError}</Notice>}
+          {msg && <Notice tone="danger">{msg}</Notice>}
 
-        {!shelter && (
-          <form
-            onSubmit={createShelter}
-            className="bg-white rounded-xl border border-slate-200 p-4 space-y-2"
-          >
-            <h2 className="font-semibold">Register your shelter</h2>
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Shelter name"
-              className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
-            />
-            <label className="text-sm flex items-center gap-2">
-              Beds
-              <input
-                type="number"
-                min={0}
-                value={newBeds}
-                onChange={(e) => setNewBeds(Math.max(0, Number(e.target.value) || 0))}
-                className="w-20 rounded-lg border border-slate-300 px-2 py-1"
-              />
-            </label>
-            <p className="text-xs text-slate-500">
-              {newLoc ? `Location: ${newLoc.lat}, ${newLoc.lng}` : "Tap the map to set location."}
-            </p>
-            <button className="w-full rounded-lg bg-blue-600 text-white py-2 text-sm">
-              Create shelter
-            </button>
-          </form>
-        )}
+          {!shelter && (
+            <Card title="Register Your Shelter">
+              <form onSubmit={createShelter} className="space-y-4">
+                <Field label="Shelter Name">
+                  <Input value={newName} onChange={(e) => setNewName(e.target.value)} />
+                </Field>
+                <Field label="Total Beds">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={newBeds}
+                    onChange={(e) => setNewBeds(Math.max(0, Number(e.target.value) || 0))}
+                    className="w-24"
+                  />
+                </Field>
+                <p className="text-sm text-zinc-500">
+                  {newLoc ? `Location: ${newLoc.lat}, ${newLoc.lng}` : "Tap the map to set the location."}
+                </p>
+                <Button type="submit" block>
+                  Create Shelter
+                </Button>
+              </form>
+            </Card>
+          )}
 
-        {shelter && (
-          <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-            {myShelters.length > 1 && (
-              <select
-                value={shelter.id}
-                onChange={(e) => setPickedShelterId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-2 py-1 text-sm"
-              >
-                {myShelters.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <div>
-              <h2 className="font-semibold">🏠 {shelter.name}</h2>
-              {shelter.address && <p className="text-xs text-slate-500">{shelter.address}</p>}
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Beds free tonight</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() =>
-                    saveShelter({ beds_available: Math.max(0, shelter.beds_available - 1) })
-                  }
-                  className="w-8 h-8 rounded-lg border border-slate-300"
-                >
-                  −
-                </button>
-                <span className="text-2xl font-bold w-10 text-center">
-                  {shelter.beds_available}
-                </span>
-                <button
-                  onClick={() =>
-                    saveShelter({
-                      beds_available: Math.min(shelter.total_beds, shelter.beds_available + 1),
-                    })
-                  }
-                  className="w-8 h-8 rounded-lg border border-slate-300"
-                >
-                  +
-                </button>
-                <span className="text-xs text-slate-500">/ {shelter.total_beds}</span>
-              </div>
-            </div>
-            <label className="flex items-center justify-between text-sm">
-              Open tonight
-              <input
-                type="checkbox"
-                checked={shelter.open_tonight}
-                onChange={(e) => saveShelter({ open_tonight: e.target.checked })}
-              />
-            </label>
-          </div>
-        )}
-
-        {shelter && (
-          <div className="space-y-2">
-            <h2 className="font-semibold">Waiting for a bed ({waiting.length})</h2>
-            {waiting.length === 0 && (
-              <p className="text-sm text-slate-500">Nobody is waiting right now.</p>
-            )}
-            {waiting.map(({ r, d }) => (
-              <div key={r.id} className="space-y-1">
-                <ReportCard
-                  report={r}
-                  selected={r.id === selectedId}
-                  onClick={() => setSelectedId(r.id)}
-                  extra={` · ${d.toFixed(1)} mi away`}
-                />
-                {r.id === selectedId && (
-                  <div className="pl-2 space-y-2">
-                    {r.outcome && (
-                      <p className="text-xs text-slate-600">Helper note: {r.outcome}</p>
-                    )}
-                    <button
-                      disabled={busy}
-                      onClick={() => accept(r.id)}
-                      className="w-full rounded-lg bg-green-600 text-white py-2 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-                    >
-                      Accept: we have a bed
-                    </button>
-                    {selected && <Timeline reportId={selected.id} version={selected.updated_at} />}
-                  </div>
+          {shelter && (
+            <Card title={shelter.name}>
+              <div className="space-y-5">
+                {myShelters.length > 1 && (
+                  <Select
+                    aria-label="Choose shelter"
+                    value={shelter.id}
+                    onChange={(e) => setPickedShelterId(e.target.value)}
+                  >
+                    {myShelters.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
                 )}
-              </div>
-            ))}
-          </div>
-        )}
+                {shelter.address && <p className="-mt-3 text-sm text-zinc-500">{shelter.address}</p>}
 
-        {shelter && placedHere.length > 0 && (
-          <div className="space-y-2">
-            <h2 className="font-semibold">Placed here ({placedHere.length})</h2>
-            {placedHere.map((r) => (
-              <ReportCard key={r.id} report={r} />
-            ))}
-          </div>
-        )}
-      </aside>
-    </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-zinc-900">Beds Free Tonight</div>
+                    <div className="text-xs text-zinc-500">of {shelter.total_beds} total</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label="Remove one bed"
+                      onClick={() =>
+                        saveShelter({ beds_available: Math.max(0, shelter.beds_available - 1) })
+                      }
+                    >
+                      −
+                    </Button>
+                    <span className="w-10 text-center text-3xl font-semibold tabular-nums">
+                      {shelter.beds_available}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      aria-label="Add one bed"
+                      onClick={() =>
+                        saveShelter({
+                          beds_available: Math.min(shelter.total_beds, shelter.beds_available + 1),
+                        })
+                      }
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
+                <label className="flex items-center justify-between border-t border-zinc-100 pt-4 text-sm">
+                  <span className="font-medium text-zinc-900">Open Tonight</span>
+                  <input
+                    type="checkbox"
+                    checked={shelter.open_tonight}
+                    onChange={(e) => saveShelter({ open_tonight: e.target.checked })}
+                    className="h-4 w-4 accent-zinc-900"
+                  />
+                </label>
+              </div>
+            </Card>
+          )}
+
+          {shelter && (
+            <Card title={`Waiting for a Bed (${waiting.length})`}>
+              {waiting.length === 0 ? (
+                <EmptyState>Nobody is waiting right now.</EmptyState>
+              ) : (
+                <div className="space-y-3">
+                  {waiting.map(({ r, d }) => (
+                    <div key={r.id} className="space-y-3">
+                      <ReportCard
+                        report={r}
+                        selected={r.id === selectedId}
+                        onClick={() => setSelectedId(r.id)}
+                        extra={`${d.toFixed(1)} mi away`}
+                      />
+                      {r.id === selectedId && (
+                        <div className="space-y-4 px-1 pb-2">
+                          {r.outcome && (
+                            <p className="text-sm text-zinc-600">
+                              <span className="text-zinc-500">Helper note:</span> {r.outcome}
+                            </p>
+                          )}
+                          <Button block disabled={busy} onClick={() => accept(r.id)}>
+                            Accept and Place
+                          </Button>
+                          {selected && (
+                            <Timeline reportId={selected.id} version={selected.updated_at} />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {shelter && placedHere.length > 0 && (
+            <Card title={`Placed Here (${placedHere.length})`}>
+              <div className="space-y-3">
+                {placedHere.map((r) => (
+                  <ReportCard key={r.id} report={r} />
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

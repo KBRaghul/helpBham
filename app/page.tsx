@@ -1,95 +1,78 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { DEMO_USERS, homeFor, login, useSession } from "@/lib/auth";
+import type { Metadata } from "next";
+import LoginForm from "@/components/LoginForm";
+import Logo from "@/components/Logo";
 import WeatherBadge from "@/components/WeatherBadge";
+import { SITE } from "@/lib/site";
 
-export default function LoginPage() {
-  const router = useRouter();
-  const session = useSession();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+export const metadata: Metadata = {
+  title: { absolute: `${SITE.name} · ${SITE.tagline}` },
+  alternates: { canonical: "/" },
+};
 
-  useEffect(() => {
-    if (session) router.replace(homeFor(session.role));
-  }, [session, router]);
+const STEPS = [
+  {
+    role: "Reporter",
+    text: "Anyone who sees someone sleeping rough drops a pin and notes what they need.",
+  },
+  {
+    role: "Helper",
+    text: "A volunteer claims the report, checks on the person and brings supplies.",
+  },
+  {
+    role: "Missionary",
+    text: "A shelter with a free bed accepts them and updates its capacity live.",
+  },
+  {
+    role: "Admin",
+    text: "Coordinators watch the whole city and switch on cold-night mode.",
+  },
+];
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const s = login(username, password);
-    if (!s) {
-      setError("Wrong username or password.");
-      return;
-    }
-    router.replace(homeFor(s.role));
-  }
-
-  function quick(u: (typeof DEMO_USERS)[number]) {
-    setUsername(u.username);
-    setPassword(u.password);
-    setError(null);
-  }
-
+export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold">helpBham</h1>
-          <p className="text-sm text-slate-600">
-            Get people sleeping rough in Birmingham to a warm bed on cold nights.
-          </p>
-          <div className="mt-2 text-sm text-slate-700">
-            <WeatherBadge />
-          </div>
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
+        <Logo />
+        <span className="text-sm text-zinc-500">
+          <WeatherBadge />
+        </span>
+      </header>
 
-        <form onSubmit={submit} className="space-y-3">
-          <label className="block">
-            <span className="text-sm font-medium">Username</span>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-            />
-          </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button className="w-full rounded-lg bg-slate-900 text-white py-2 font-medium hover:bg-slate-700">
-            Sign in
-          </button>
-        </form>
-
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">
-            Demo accounts (tap to fill)
+      <main className="mx-auto grid w-full max-w-6xl flex-1 items-start gap-12 px-6 py-10 lg:grid-cols-[1fr_400px] lg:py-16">
+        <section>
+          <p className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+            Birmingham, Alabama
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {DEMO_USERS.map((u) => (
-              <button
-                key={u.username}
-                type="button"
-                onClick={() => quick(u)}
-                className="text-left rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
-              >
-                <div className="text-sm font-medium">{u.username}</div>
-                <div className="text-xs text-slate-500">{u.password}</div>
-              </button>
+          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
+            {SITE.tagline}
+          </h1>
+          <p className="mt-4 max-w-xl text-base text-zinc-600">{SITE.description}</p>
+
+          <h2 className="mt-12 text-xs font-medium uppercase tracking-wider text-zinc-500">
+            How It Works
+          </h2>
+          <ol className="mt-4 grid gap-4 sm:grid-cols-2">
+            {STEPS.map((s, i) => (
+              <li key={s.role} className="rounded-xl border border-zinc-200 bg-white p-5">
+                <div className="text-xs tabular-nums text-zinc-500">0{i + 1}</div>
+                <h3 className="mt-1 text-base font-semibold text-zinc-900">{s.role}</h3>
+                <p className="mt-1 text-sm text-zinc-600">{s.text}</p>
+              </li>
             ))}
-          </div>
-        </div>
-      </div>
-    </main>
+          </ol>
+
+          <p className="mt-8 text-sm text-zinc-500">
+            If someone is unresponsive or in danger, call <strong className="text-zinc-900">911</strong>.
+            helpBham is not an emergency service.
+          </p>
+        </section>
+
+        <LoginForm />
+      </main>
+
+      <footer className="mx-auto w-full max-w-6xl px-6 py-6 text-xs text-zinc-500">
+        © 2026 helpBham · Hackathon demo
+      </footer>
+    </div>
   );
 }
