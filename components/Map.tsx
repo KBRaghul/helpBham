@@ -1,8 +1,14 @@
 "use client";
 
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Popup,
+  useMapEvents,
+} from "react-leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 export type Pin = {
   id: string;
@@ -17,11 +23,6 @@ const COLORS: Record<Pin["status"], string> = {
   claimed: "#f59e0b",
   placed: "#16a34a",
 };
-
-const BHAM_BOUNDS: LatLngBoundsExpression = [
-  [33.38, -87.0],
-  [33.65, -86.6],
-];
 
 const SAMPLE: Pin[] = [
   {
@@ -40,7 +41,37 @@ const SAMPLE: Pin[] = [
   },
 ];
 
-export default function Map({ pins = SAMPLE }: { pins?: Pin[] }) {
+const BHAM_BOUNDS: LatLngBoundsExpression = [
+  [33.38, -87.0],
+  [33.65, -86.6],
+];
+
+function roundCoord(n: number) {
+  return Math.round(n * 1000) / 1000;
+}
+
+function ClickToDrop({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(e) {
+      onPick(roundCoord(e.latlng.lat), roundCoord(e.latlng.lng));
+    },
+  });
+  return null;
+}
+
+export default function Map({
+  pins = SAMPLE,
+  onPick,
+  picked,
+}: {
+  pins?: Pin[];
+  onPick?: (lat: number, lng: number) => void;
+  picked?: { lat: number; lng: number } | null;
+}) {
   return (
     <MapContainer
       center={[33.5186, -86.8104]}
@@ -54,6 +85,7 @@ export default function Map({ pins = SAMPLE }: { pins?: Pin[] }) {
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution="&copy; OpenStreetMap contributors"
       />
+      {onPick && <ClickToDrop onPick={onPick} />}
       {pins.map((p) => (
         <CircleMarker
           key={p.id}
@@ -71,6 +103,17 @@ export default function Map({ pins = SAMPLE }: { pins?: Pin[] }) {
           </Popup>
         </CircleMarker>
       ))}
+      {picked && (
+        <CircleMarker
+          center={[picked.lat, picked.lng]}
+          radius={12}
+          pathOptions={{
+            color: "#2563eb",
+            fillColor: "#2563eb",
+            fillOpacity: 0.5,
+          }}
+        />
+      )}
     </MapContainer>
   );
 }
