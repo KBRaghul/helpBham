@@ -39,7 +39,7 @@ function useLiveTable<T>(table: string, order: string, ascending: boolean) {
   }, [table, order, ascending]);
 
   useEffect(() => {
-    reload();
+    const first = setTimeout(reload, 0);
     const channel = supabase
       .channel(`live-${table}-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table }, () => {
@@ -49,6 +49,7 @@ function useLiveTable<T>(table: string, order: string, ascending: boolean) {
     // Fallback poll in case Realtime is not enabled on the project.
     const t = setInterval(reload, 15000);
     return () => {
+      clearTimeout(first);
       clearInterval(t);
       supabase.removeChannel(channel);
     };

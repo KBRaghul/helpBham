@@ -5,41 +5,29 @@ import {
   TileLayer,
   CircleMarker,
   Popup,
+  Tooltip,
   useMapEvents,
 } from "react-leaflet";
 import type { LatLngBoundsExpression } from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { STATUS_COLORS, type ReportStatus } from "@/lib/types";
 
 export type Pin = {
   id: string;
   lat: number;
   lng: number;
-  status: "reported" | "claimed" | "placed";
-  note?: string;
+  status: ReportStatus;
+  label?: string;
 };
 
-const COLORS: Record<Pin["status"], string> = {
-  reported: "#dc2626",
-  claimed: "#f59e0b",
-  placed: "#16a34a",
+export type ShelterPin = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  beds_available: number;
+  open_tonight: boolean;
 };
-
-const SAMPLE: Pin[] = [
-  {
-    id: "1",
-    lat: 33.5207,
-    lng: -86.8025,
-    status: "reported",
-    note: "Sample case",
-  },
-  {
-    id: "2",
-    lat: 33.5145,
-    lng: -86.811,
-    status: "claimed",
-    note: "Sample case",
-  },
-];
 
 const BHAM_BOUNDS: LatLngBoundsExpression = [
   [33.38, -87.0],
@@ -64,13 +52,19 @@ function ClickToDrop({
 }
 
 export default function Map({
-  pins = SAMPLE,
+  pins = [],
+  shelters = [],
   onPick,
   picked,
+  onSelect,
+  selectedId,
 }: {
   pins?: Pin[];
+  shelters?: ShelterPin[];
   onPick?: (lat: number, lng: number) => void;
   picked?: { lat: number; lng: number } | null;
+  onSelect?: (id: string) => void;
+  selectedId?: string | null;
 }) {
   return (
     <MapContainer
@@ -86,23 +80,58 @@ export default function Map({
         attribution="&copy; OpenStreetMap contributors"
       />
       {onPick && <ClickToDrop onPick={onPick} />}
-      {pins.map((p) => (
-        <CircleMarker
-          key={p.id}
-          center={[p.lat, p.lng]}
-          radius={10}
-          pathOptions={{
-            color: COLORS[p.status],
-            fillColor: COLORS[p.status],
-            fillOpacity: 0.7,
-          }}
-        >
-          <Popup>
-            {p.status}
-            {p.note ? `: ${p.note}` : ""}
-          </Popup>
-        </CircleMarker>
-      ))}
+
+      {shelters.map((s) => {
+        const color = !s.open_tonight
+          ? "#6b7280"
+          : s.beds_available > 0
+            ? "#2563eb"
+            : "#1e3a8a";
+        return (
+          <CircleMarker
+            key={`s-${s.id}`}
+            center={[s.lat, s.lng]}
+            radius={8}
+            pathOptions={{ color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 }}
+          >
+            <Tooltip>
+              🏠 {s.name}:{" "}
+              {s.open_tonight ? `${s.beds_available} beds free` : "closed tonight"}
+            </Tooltip>
+          </CircleMarker>
+        );
+      })}
+
+      {pins.map((p) => {
+        const selected = p.id === selectedId;
+        return (
+          <CircleMarker
+            key={p.id}
+            center={[p.lat, p.lng]}
+            radius={selected ? 14 : 10}
+            pathOptions={{
+              color: selected ? "#111" : STATUS_COLORS[p.status],
+              weight: selected ? 3 : 2,
+              fillColor: STATUS_COLORS[p.status],
+              fillOpacity: 0.75,
+            }}
+            eventHandlers={
+              onSelect
+                ? {
+                    click: (e) => {
+                      e.originalEvent.stopPropagation();
+                      onSelect(p.id);
+                    },
+                  }
+                : undefined
+            }
+          >
+            {p.label && !onSelect && <Popup>{p.label}</Popup>}
+            {p.label && onSelect && <Tooltip>{p.label}</Tooltip>}
+          </CircleMarker>
+        );
+      })}
+
       {picked && (
         <CircleMarker
           center={[picked.lat, picked.lng]}
@@ -111,6 +140,7 @@ export default function Map({
             color: "#2563eb",
             fillColor: "#2563eb",
             fillOpacity: 0.5,
+            dashArray: "4",
           }}
         />
       )}

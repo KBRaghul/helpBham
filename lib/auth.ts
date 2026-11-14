@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { Role, Session } from "./types";
 
 // Hackathon demo accounts. NOT real authentication.
@@ -44,29 +44,35 @@ export function logout() {
   window.dispatchEvent(new Event(EVENT));
 }
 
-function read(): Session | null {
+function subscribe(cb: () => void) {
+  window.addEventListener(EVENT, cb);
+  window.addEventListener("storage", cb);
+  return () => {
+    window.removeEventListener(EVENT, cb);
+    window.removeEventListener("storage", cb);
+  };
+}
+
+function readRaw(): string {
   try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
+    return localStorage.getItem(KEY) ?? "";
   } catch {
-    return null;
+    return "";
   }
 }
 
-/** Returns undefined while loading, null when signed out. */
+/** Returns undefined while loading (server render), null when signed out. */
 export function useSession(): Session | null | undefined {
-  const [s, setS] = useState<Session | null | undefined>(undefined);
-  useEffect(() => {
-    const sync = () => setS(read());
-    sync();
-    window.addEventListener(EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-  return s;
+  const raw = useSyncExternalStore<string | undefined>(subscribe, readRaw, () => undefined);
+  return useMemo(() => {
+    if (raw === undefined) return undefined;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as Session;
+    } catch {
+      return null;
+    }
+  }, [raw]);
 }
 
 export function homeFor(role: Role) {
