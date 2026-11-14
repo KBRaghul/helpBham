@@ -94,7 +94,7 @@ export default function HelperPage() {
           .from("reports")
           .update({ status: "claimed", helper: me, claimed_at: new Date().toISOString() })
           .eq("id", selected.id)
-          .or(`status.eq.reported,and(status.eq.claimed,claimed_at.lt.${cutoff})`)
+          .or(`status.eq.reported,and(status.eq.claimed,claimed_at.lt."${cutoff}")`)
           .select(),
       "claimed",
       isStale(selected) ? `took over stale claim from ${selected.helper}` : undefined,
