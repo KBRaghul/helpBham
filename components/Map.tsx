@@ -2,6 +2,7 @@
 
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import type { LatLngBoundsExpression } from "leaflet";
 
 export type Pin = {
   id: string;
@@ -16,6 +17,11 @@ const COLORS: Record<Pin["status"], string> = {
   claimed: "#f59e0b",
   placed: "#16a34a",
 };
+
+const BHAM_BOUNDS: LatLngBoundsExpression = [
+  [33.38, -87.0],
+  [33.65, -86.6],
+];
 
 const SAMPLE: Pin[] = [
   {
@@ -39,6 +45,9 @@ export default function Map({ pins = SAMPLE }: { pins?: Pin[] }) {
     <MapContainer
       center={[33.5186, -86.8104]}
       zoom={13}
+      minZoom={12}
+      maxBounds={BHAM_BOUNDS}
+      maxBoundsViscosity={1.0}
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer
