@@ -11,7 +11,9 @@ export function useIsColdNight() {
   useEffect(() => {
     getBirminghamWeather().then(setW);
   }, []);
-  const active = mode === "on" || (mode === "auto" && !!w?.isCold);
+  // "Auto" only trusts live weather: if the weather service is down we don't
+  // raise a false alarm from the demo fallback temperature.
+  const active = mode === "on" || (mode === "auto" && w?.source === "live" && w.isCold);
   return { active, mode, weather: w };
 }
 
@@ -22,7 +24,7 @@ export default function ColdBanner() {
     <div role="status" className="border-b border-sky-100 bg-sky-50">
       <p className="mx-auto max-w-7xl px-4 py-2 text-sm text-sky-900 sm:px-6">
         <span className="font-medium">Cold-Night Alert</span>
-        {weather ? ` · ${weather.tempF}°F in Birmingham` : ""}. Reports are prioritized. If
+        {weather?.source === "live" ? ` · ${weather.tempF}°F in Birmingham` : ""}. Reports are prioritized. If
         someone is unresponsive, call 911.
       </p>
     </div>

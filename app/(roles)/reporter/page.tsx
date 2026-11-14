@@ -16,7 +16,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { useSession } from "@/lib/auth";
-import { logEvent, useReports, useShelters } from "@/lib/data";
+import { logEvent, useLock, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { NEEDS } from "@/lib/types";
 
@@ -34,7 +34,7 @@ export default function ReporterPage() {
   const [urgent, setUrgent] = useState(false);
   const [note, setNote] = useState("");
   const [contact, setContact] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useLock();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const mine = reports.filter((r) => r.reporter === session?.username);
@@ -58,13 +58,16 @@ export default function ReporterPage() {
     );
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!picked) {
       setMsg({ ok: false, text: "Tap the map to mark where the person is." });
       return;
     }
-    setBusy(true);
+    return run(() => send(picked));
+  }
+
+  async function send(picked: { lat: number; lng: number }) {
     setMsg(null);
     const { data, error } = await supabase
       .from("reports")
@@ -80,7 +83,6 @@ export default function ReporterPage() {
       })
       .select()
       .single();
-    setBusy(false);
     if (error || !data) {
       setMsg({ ok: false, text: `Couldn't send report: ${error?.message ?? "unknown error"}` });
       return;
@@ -143,7 +145,7 @@ export default function ReporterPage() {
                   min={1}
                   max={20}
                   value={people}
-                  onChange={(e) => setPeople(Math.max(1, Number(e.target.value) || 1))}
+                  onChange={(e) => setPeople(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
                   className="w-24"
                 />
               </Field>

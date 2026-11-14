@@ -25,6 +25,7 @@ export type Report = {
   claimed_at: string | null;
   shelter_id: string | null;
   outcome: string | null;
+  placed_at: string | null;
 };
 
 export type Shelter = {

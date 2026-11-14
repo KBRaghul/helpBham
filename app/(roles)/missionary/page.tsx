@@ -17,7 +17,7 @@ import {
   Select,
 } from "@/components/ui";
 import { useSession } from "@/lib/auth";
-import { logEvent, miles, useReports, useShelters } from "@/lib/data";
+import { callRpc, miles, useLock, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import type { Shelter } from "@/lib/types";
 
@@ -35,7 +35,7 @@ export default function MissionaryPage() {
     myShelters.find((s) => s.id === pickedShelterId) ?? myShelters[0];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useLock();
   const [msg, setMsg] = useState<string | null>(null);
 
   // New-shelter form (for a missionary with no shelter yet)
@@ -60,7 +60,17 @@ export default function MissionaryPage() {
     reloadShelters();
   }
 
-  async function accept(reportId: string) {
+  // Beds are changed inside the database (adjust_beds) so rapid clicks and
+  // other devices can't overwrite each other.
+  async function adjustBeds(delta: number) {
+    if (!shelter) return;
+    setMsg(null);
+    const err = await callRpc("adjust_beds", { p_shelter: shelter.id, p_delta: delta });
+    if (err) setMsg(err);
+    reloadShelters();
+  }
+
+  function accept(reportId: string) {
     if (!shelter) return;
     const r = reports.find((x) => x.id === reportId);
     if (!r) return;
@@ -68,35 +78,32 @@ export default function MissionaryPage() {
       setMsg(`Not enough free beds (${shelter.beds_available}) for ${r.people_count} people.`);
       return;
     }
-    setBusy(true);
-    setMsg(null);
-    const { data, error } = await supabase
-      .from("reports")
-      .update({ status: "placed", shelter_id: shelter.id })
-      .eq("id", reportId)
-      .eq("status", "needs_bed")
-      .select();
-    if (error) setMsg(error.message);
-    else if (!data || data.length === 0) setMsg("Another shelter already accepted this person.");
-    else {
-      await supabase
-        .from("shelters")
-        .update({ beds_available: Math.max(0, shelter.beds_available - r.people_count) })
-        .eq("id", shelter.id);
-      await logEvent(reportId, session ?? null, "placed", shelter.name);
-      setSelectedId(null);
-    }
-    setBusy(false);
-    reloadReports();
-    reloadShelters();
+    return run(async () => {
+      setMsg(null);
+      // All-or-nothing in the database: checks status + beds, places, logs.
+      const err = await callRpc("place_report", {
+        p_report: reportId,
+        p_shelter: shelter.id,
+        p_actor: me,
+        p_role: session?.role ?? "missionary",
+      });
+      if (err) setMsg(err === "Someone else already handled this report." ? "Another shelter already accepted this person." : err);
+      else setSelectedId(null);
+      reloadReports();
+      reloadShelters();
+    });
   }
 
-  async function createShelter(e: React.FormEvent) {
+  function createShelter(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim() || !newLoc) {
       setMsg("Give the shelter a name and tap its location on the map.");
       return;
     }
+    return run(() => insertShelter(newLoc));
+  }
+
+  async function insertShelter(newLoc: { lat: number; lng: number }) {
     const { error } = await supabase.from("shelters").insert({
       name: newName.trim(),
       lat: newLoc.lat,
@@ -161,7 +168,7 @@ export default function MissionaryPage() {
                 <p className="text-sm text-zinc-500">
                   {newLoc ? `Location: ${newLoc.lat}, ${newLoc.lng}` : "Tap the map to set the location."}
                 </p>
-                <Button type="submit" block>
+                <Button type="submit" block disabled={busy}>
                   Create Shelter
                 </Button>
               </form>
@@ -196,9 +203,7 @@ export default function MissionaryPage() {
                       variant="secondary"
                       size="sm"
                       aria-label="Remove one bed"
-                      onClick={() =>
-                        saveShelter({ beds_available: Math.max(0, shelter.beds_available - 1) })
-                      }
+                      onClick={() => adjustBeds(-1)}
                     >
                       −
                     </Button>
@@ -209,11 +214,7 @@ export default function MissionaryPage() {
                       variant="secondary"
                       size="sm"
                       aria-label="Add one bed"
-                      onClick={() =>
-                        saveShelter({
-                          beds_available: Math.min(shelter.total_beds, shelter.beds_available + 1),
-                        })
-                      }
+                      onClick={() => adjustBeds(1)}
                     >
                       +
                     </Button>

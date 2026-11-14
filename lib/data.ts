@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "./supabase";
 import type { ColdMode, Report, Session, Shelter } from "./types";
 
@@ -97,4 +97,50 @@ export function miles(a: { lat: number; lng: number }, b: { lat: number; lng: nu
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Prevents double submits: while `run` is in flight, further calls are ignored.
+ * A ref (not state) so the second click of a double-click is blocked even
+ * before React re-renders with `busy = true`.
+ */
+export function useLock() {
+  const locked = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const run = useCallback(async (fn: () => Promise<unknown>) => {
+    if (locked.current) return;
+    locked.current = true;
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      locked.current = false;
+      setBusy(false);
+    }
+  }, []);
+  return { busy, run };
+}
+
+const RPC_MESSAGES: Record<string, string> = {
+  taken: "Someone else already handled this report.",
+  closed: "That shelter is closed tonight.",
+  no_beds: "Not enough free beds at that shelter.",
+  no_shelter: "Choose a shelter first.",
+  not_found: "That report no longer exists.",
+};
+
+/**
+ * Calls a database function from supabase/002_atomic_beds.sql.
+ * Returns null on success, otherwise a user-facing error message.
+ */
+export async function callRpc(fn: string, args: Record<string, unknown>): Promise<string | null> {
+  const { data, error } = await supabase.rpc(fn, args);
+  if (error) {
+    if (error.code === "PGRST202" || /could not find the function/i.test(error.message)) {
+      return "Database update needed: run supabase/002_atomic_beds.sql in the Supabase SQL Editor.";
+    }
+    return error.message;
+  }
+  if (typeof data === "string" && data !== "ok") return RPC_MESSAGES[data] ?? data;
+  return null;
 }

@@ -19,18 +19,18 @@ import {
   Tabs,
 } from "@/components/ui";
 import { useSession } from "@/lib/auth";
-import { logEvent, setColdMode, timeAgo, useReports, useShelters } from "@/lib/data";
-import { supabase } from "@/lib/supabase";
+import { callRpc, setColdMode, timeAgo, useLock, useReports, useShelters } from "@/lib/data";
 import { STATUS_LABELS, type ColdMode, type Report, type ReportStatus } from "@/lib/types";
 
 const STATUSES = Object.keys(STATUS_LABELS) as ReportStatus[];
 const COLD_LABEL: Record<ColdMode, string> = { auto: "Auto", on: "On", off: "Off" };
 
 function avgPlacementMinutes(reports: Report[]) {
-  const placed = reports.filter((r) => r.status === "placed");
+  // placed_at is set once, at placement, so later edits don't inflate this.
+  const placed = reports.filter((r) => r.status === "placed" && r.placed_at);
   if (placed.length === 0) return null;
   const total = placed.reduce(
-    (sum, r) => sum + (new Date(r.updated_at).getTime() - new Date(r.created_at).getTime()),
+    (sum, r) => sum + (new Date(r.placed_at!).getTime() - new Date(r.created_at).getTime()),
     0,
   );
   return Math.round(total / placed.length / 60000);
@@ -45,6 +45,9 @@ export default function AdminPage() {
   const [filter, setFilter] = useState<ReportStatus | "all">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [placeShelterId, setPlaceShelterId] = useState("");
+  const { busy, run } = useLock();
 
   const count = (s: ReportStatus) => reports.filter((r) => r.status === s).length;
   const freeBeds = shelters.filter((s) => s.open_tonight).reduce((n, s) => n + s.beds_available, 0);
@@ -52,25 +55,44 @@ export default function AdminPage() {
   const shown = filter === "all" ? reports : reports.filter((r) => r.status === filter);
   const selected = reports.find((r) => r.id === selectedId) ?? null;
 
-  async function setStatus(r: Report, status: ReportStatus) {
+  function select(id: string) {
+    setSelectedId(id);
+    setPlacing(false);
     setMsg(null);
-    const patch: Partial<Report> = { status };
-    if (status === "reported") {
-      patch.helper = null;
-      patch.claimed_at = null;
-    }
-    const { error } = await supabase.from("reports").update(patch).eq("id", r.id);
-    if (error) setMsg(error.message);
-    else await logEvent(r.id, session ?? null, `admin set ${STATUS_LABELS[status]}`);
-    reload();
   }
 
-  async function remove(r: Report) {
+  // Status changes go through admin_set_status so beds stay consistent:
+  // leaving "Placed" returns beds, entering "Placed" requires a shelter.
+  function setStatus(r: Report, status: ReportStatus, shelterId?: string) {
+    if (status === "placed" && !shelterId) {
+      setPlacing(true);
+      setPlaceShelterId(
+        shelters.find((s) => s.open_tonight && s.beds_available >= r.people_count)?.id ?? "",
+      );
+      return;
+    }
+    return run(async () => {
+      setMsg(null);
+      const err = await callRpc("admin_set_status", {
+        p_report: r.id,
+        p_status: status,
+        p_actor: session?.username ?? "admin",
+        p_shelter: shelterId ?? null,
+      });
+      if (err) setMsg(err);
+      else setPlacing(false);
+      reload();
+    });
+  }
+
+  function remove(r: Report) {
     if (!confirm(`Delete report #${r.code}? This can't be undone.`)) return;
-    const { error } = await supabase.from("reports").delete().eq("id", r.id);
-    if (error) setMsg(error.message);
-    setSelectedId(null);
-    reload();
+    return run(async () => {
+      const err = await callRpc("delete_report", { p_report: r.id });
+      if (err) setMsg(err);
+      else setSelectedId(null);
+      reload();
+    });
   }
 
   async function changeColdMode(m: ColdMode) {
@@ -90,7 +112,7 @@ export default function AdminPage() {
               <span className={cold ? "font-medium text-sky-700" : "text-zinc-500"}>
                 {cold ? "Active" : "Inactive"}
               </span>
-              {weather && <span className="tabular-nums"> · {weather.tempF}°F</span>}
+              {weather?.source === "live" && <span className="tabular-nums"> · {weather.tempF}°F</span>}
             </span>
             <Tabs
               value={mode}
@@ -129,7 +151,7 @@ export default function AdminPage() {
                 label: `#${r.code} · ${STATUS_LABELS[r.status]}`,
               }))}
               shelters={shelters}
-              onSelect={setSelectedId}
+              onSelect={select}
               selectedId={selectedId}
             />
           </MapFrame>
@@ -169,8 +191,13 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                   <Select
                     aria-label="Change status"
-                    value={selected.status}
-                    onChange={(e) => setStatus(selected, e.target.value as ReportStatus)}
+                    value={placing ? "placed" : selected.status}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const next = e.target.value as ReportStatus;
+                      if (next !== "placed") setPlacing(false);
+                      if (next !== selected.status || next === "placed") setStatus(selected, next);
+                    }}
                     className="flex-1"
                   >
                     {STATUSES.map((s) => (
@@ -179,10 +206,45 @@ export default function AdminPage() {
                       </option>
                     ))}
                   </Select>
-                  <Button variant="danger" onClick={() => remove(selected)}>
+                  <Button variant="danger" disabled={busy} onClick={() => remove(selected)}>
                     Delete
                   </Button>
                 </div>
+                {placing && (
+                  <div className="space-y-2 rounded-lg bg-zinc-50 p-3">
+                    <div className="text-sm font-medium text-zinc-900">Place at Shelter</div>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        aria-label="Shelter"
+                        value={placeShelterId}
+                        onChange={(e) => setPlaceShelterId(e.target.value)}
+                        className="flex-1"
+                      >
+                        <option value="" disabled>
+                          Choose a shelter
+                        </option>
+                        {shelters.map((s) => (
+                          <option
+                            key={s.id}
+                            value={s.id}
+                            disabled={!s.open_tonight || s.beds_available < selected.people_count}
+                          >
+                            {s.name} · {s.open_tonight ? `${s.beds_available} Free` : "Closed"}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        disabled={busy || !placeShelterId}
+                        onClick={() => setStatus(selected, "placed", placeShelterId)}
+                      >
+                        Confirm
+                      </Button>
+                      <Button variant="ghost" onClick={() => setPlacing(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <Timeline reportId={selected.id} version={selected.updated_at} />
               </div>
             </Card>
@@ -204,7 +266,7 @@ export default function AdminPage() {
                 {shown.map((r) => (
                   <tr
                     key={r.id}
-                    onClick={() => setSelectedId(r.id)}
+                    onClick={() => select(r.id)}
                     className={`cursor-pointer border-b border-zinc-100 last:border-0 ${
                       r.id === selectedId ? "bg-zinc-50" : "hover:bg-zinc-50"
                     }`}

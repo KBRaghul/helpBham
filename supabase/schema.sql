@@ -5,6 +5,8 @@
 -- with the team's `users` table via users_shelter_fk) is extended in place,
 -- never dropped. `users` and `cases` are left untouched.
 --
+-- After this file, also run 002_atomic_beds.sql (bed-count functions).
+--
 -- DEMO ONLY: policies below let the public (anon) key read and write
 -- everything, because the app uses hard-coded demo logins rather than
 -- Supabase Auth. Lock these down before any real use.
@@ -53,7 +55,8 @@ create table public.reports (
   helper        text,                -- demo username of claiming helper
   claimed_at    timestamptz,
   shelter_id    uuid references public.shelters(id) on delete set null,
-  outcome       text
+  outcome       text,
+  placed_at     timestamptz
 );
 
 create index reports_status_idx on public.reports (status);

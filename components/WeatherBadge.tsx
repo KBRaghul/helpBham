@@ -11,6 +11,7 @@ export default function WeatherBadge() {
   }, []);
 
   if (!w) return <span className="text-zinc-500">Birmingham · –°F</span>;
+  if (w.source === "fallback") return <span className="text-zinc-500">Birmingham · Weather Unavailable</span>;
 
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -20,7 +21,6 @@ export default function WeatherBadge() {
       />
       Birmingham · <span className="tabular-nums">{w.tempF}°F</span>
       {w.isCold && <span className="text-sky-700">· Cold Night</span>}
-      {w.source === "fallback" && <span className="text-zinc-500">(Demo)</span>}
     </span>
   );
 }

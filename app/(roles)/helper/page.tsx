@@ -19,7 +19,7 @@ import {
   Tabs,
 } from "@/components/ui";
 import { useSession } from "@/lib/auth";
-import { logEvent, miles, useReports, useShelters } from "@/lib/data";
+import { logEvent, miles, useLock, useReports, useShelters } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { CLAIM_TTL_MS, type Report } from "@/lib/types";
 
@@ -46,7 +46,7 @@ export default function HelperPage() {
   const [tab, setTab] = useState<Tab>("open");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [outcome, setOutcome] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useLock();
   const [msg, setMsg] = useState<string | null>(null);
 
   const active = reports.filter((r) => ["reported", "claimed", "needs_bed"].includes(r.status));
@@ -83,18 +83,19 @@ export default function HelperPage() {
     conflictMsg?: string,
   ) {
     if (!selected) return;
-    setBusy(true);
-    setMsg(null);
-    const { error, data } = await fn();
-    if (error) setMsg(error.message);
-    else if (Array.isArray(data) && data.length === 0)
-      setMsg(conflictMsg ?? "Someone else updated this report first.");
-    else {
-      await logEvent(selected.id, session ?? null, action, detail);
-      setOutcome("");
-    }
-    setBusy(false);
-    reload();
+    const report = selected;
+    return run(async () => {
+      setMsg(null);
+      const { error, data } = await fn();
+      if (error) setMsg(error.message);
+      else if (Array.isArray(data) && data.length === 0)
+        setMsg(conflictMsg ?? "Someone else updated this report first.");
+      else {
+        await logEvent(report.id, session ?? null, action, detail);
+        setOutcome("");
+      }
+      reload();
+    });
   }
 
   function claim() {
@@ -171,7 +172,10 @@ export default function HelperPage() {
                     </KeyValue>
                   )}
                   {selected.note && <KeyValue label="Notes">{selected.note}</KeyValue>}
-                  {selected.contact && <KeyValue label="Reporter">{selected.contact}</KeyValue>}
+                  {/* Reporter contact is only shown to the helper handling the report. */}
+                  {selected.contact && mineSelected && (
+                    <KeyValue label="Reporter">{selected.contact}</KeyValue>
+                  )}
                   <KeyValue label="Location">
                     <a
                       className="font-medium text-zinc-900 underline underline-offset-2"
