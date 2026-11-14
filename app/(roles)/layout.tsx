@@ -1,14 +1,9 @@
-import RoleNav from "@/components/RoleNav";
+import RoleShell from "@/components/RoleShell";
 
 export default function RolesLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div>
-      <RoleNav />
-      <main style={{ padding: 16 }}>{children}</main>
-    </div>
-  );
+  return <RoleShell>{children}</RoleShell>;
 }
