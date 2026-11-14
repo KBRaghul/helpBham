@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const MapView = dynamic(() => import("./Map"), {
+const MapView = dynamic(() => import("./Map3D"), {
   ssr: false,
   loading: () => <p>Loading map...</p>,
 });
